@@ -1,0 +1,56 @@
+{
+  "variables": {
+    "nginx_conf_dir": "/usr/local/nginx/conf",
+    "home_dir": "/home/ubuntu"
+  },
+  "builders": [
+    {
+      "type": "amazon-ebs",
+      "profile": "home",
+      "region": "us-west-2",
+      "source_ami_filter": {
+        "filters": {
+          "virtualization-type": "hvm",
+          "name": "ubuntu/images/*ubuntu-bionic-18.04-amd64-server-*",
+          "root-device-type": "ebs"
+        },
+        "owners": ["099720109477"],
+        "most_recent": true
+      },
+      "instance_type": "t2.micro",
+      "ssh_username": "ubuntu",
+      "ami_name": "nginx-rtmp {{timestamp}}",
+      "tags": {
+        "Name": "nginx-rtmp-ami"
+      }
+    }
+  ],
+  "provisioners": [
+    {
+      "type": "file",
+      "source": "nginx.conf",
+      "destination": "{{user `home_dir`}}/nginx.conf"
+    },
+    {
+      "type": "shell",
+      "inline": [
+        "sleep 30",
+        "sudo apt-get update",
+        "sudo apt-get -y install build-essential git",
+        "sudo apt-get -y install libpcre3 libpcre3-dev libssl-dev zlib1g-dev",
+        "cd /home/ubuntu",
+        "git clone https://github.com/sergey-dryabzhinsky/nginx-rtmp-module.git",
+        "wget http://nginx.org/download/nginx-1.18.0.tar.gz",
+        "tar -xf nginx-1.18.0.tar.gz",
+        "cd nginx-1.18.0",
+        "./configure --with-http_ssl_module --add-module=../nginx-rtmp-module",
+        "make -j 2",
+        "sudo make install",
+        "sudo chown ubuntu:ubuntu {{user `home_dir`}}/nginx.conf",
+        "sudo mv -f {{user `home_dir`}}/nginx.conf {{user `nginx_conf_dir`}}/nginx.conf",
+        "sudo /usr/local/nginx/sbin/nginx -t",
+        "sudo /usr/local/nginx/sbin/nginx"
+      ]
+    }
+  ]
+}
